@@ -53,7 +53,7 @@ export const translations = {
     paused:      'Paused',
     resume:      'Resume',
     pause:       'Pause',
-    done:        'Done ✓',
+    done:        'Done',
     skip:        'Skip',
     addNote:     'Add Note',
     // Alert
@@ -128,7 +128,7 @@ export const translations = {
     paused:      'Pauza',
     resume:      'Davom',
     pause:       'Pauza',
-    done:        'Bajarildi ✓',
+    done:        'Bajarildi',
     skip:        "O'tkazish",
     addNote:     'Eslatma qo\'shish',
     timeFor:     'Vaqt keldi:',

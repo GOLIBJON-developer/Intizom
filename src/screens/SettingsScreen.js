@@ -7,7 +7,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import {
+  cacheDirectory,
+  writeAsStringAsync,
+  readAsStringAsync,
+  StorageAccessFramework,
+} from 'expo-file-system/legacy';
 import { useStore } from '../store/useStore';
 import { scheduleEndOfDaySummary } from '../utils/notifications';
 import { useTheme } from '../hooks/useTheme';
@@ -111,34 +116,45 @@ export default function SettingsScreen() {
     } catch (e) { Alert.alert('Error', e?.message || 'Export failed'); }
   };
 
-  // ── Pick save folder (SAF — works in APK, not Expo Go) ───────────────────
+  // ── Saqlash joyi tanlash (SAF) ─────────────────────────────────────────────
   const handlePickFolder = async () => {
-    const SAF = FileSystem.StorageAccessFramework;
-    if (Platform.OS === 'android' && SAF?.requestDirectoryPermissionsAsync) {
+    // SAF — Android'da qurilmaning o'z file manager'i orqali papka tanlash
+    // Expo Go da ham ba'zan ishlaydi, APK da har doim ishlaydi
+    const SAF = StorageAccessFramework;
+    if (Platform.OS === 'android' && SAF) {
       try {
         const perm = await SAF.requestDirectoryPermissionsAsync();
         if (!perm.granted) return;
-        // Write current data to chosen folder immediately
+
         const { tasks, dailyLogs, streak, settings: s } = useStore.getState();
         const content = JSON.stringify({ tasks, dailyLogs, streak, settings: s }, null, 2);
-        const dest = await SAF.createFileAsync(perm.directoryUri, 'intizom-data.json', 'application/json');
-        await FileSystem.writeAsStringAsync(dest, content);
-        // Save folder URI so future exports go here automatically
+
+        // SAF content:// URI uchun SAF.writeAsStringAsync ishlatilishi shart
+        const dest = await SAF.createFileAsync(
+          perm.directoryUri,
+          'intizom-data.json',
+          'application/json'
+        );
+        await SAF.writeAsStringAsync(dest, content);
+
         await updateSettings({ exportFolderUri: perm.directoryUri });
-        Alert.alert('✅ Joylashuv belgilandi', `intizom-data.json shu papkaga saqlandi.\nKeyingi eksportlar ham shu yerga boradi.`);
+        Alert.alert(
+          '✅ Saqlandi!',
+          'intizom-data.json fayli tanlangan papkaga muvaffaqiyatli saqlandi.'
+        );
       } catch (e) {
-        Alert.alert('Xato', e?.message || 'Papka tanlab bo\'lmadi');
+        console.warn('SAF error:', e?.message);
+        Alert.alert(
+          'Xato',
+          `Papkaga yozib bo'lmadi: ${e?.message || 'Noma\'lum xato'}\n\n"Ma\'lumotni eksport" tugmasini ishlating.`,
+          [
+            { text: 'OK' },
+            { text: 'Eksport', onPress: handleExport },
+          ]
+        );
       }
     } else {
-      // Expo Go da SAF ishlamaydi — bu funksiya faqat APK build da ishlaydi
-      Alert.alert(
-        'APK Build kerak',
-        'Papka tanlash faqat to\'liq APK/IPA build da ishlaydi.\n\nExpo Go da "Export Data" tugmasi orqali faylni saqlashingiz mumkin.',
-        [
-          { text: 'OK' },
-          { text: 'Export qilish', onPress: handleExport },
-        ]
-      );
+      await handleExport();
     }
   };
 

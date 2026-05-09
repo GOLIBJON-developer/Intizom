@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import { format, isToday, isYesterday, parseISO, differenceInCalendarDays } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as LegacyFS from 'expo-file-system/legacy';
+// expo-file-system v19 (SDK 54): eski API /legacy dan import qilinadi
+// Bu Expo dokumentatsiyasida ko'rsatilgan to'g'ri yo'l
+import {
+  cacheDirectory,
+  writeAsStringAsync,
+  readAsStringAsync,
+  StorageAccessFramework,
+} from 'expo-file-system/legacy';
 
 // ─── ID generator ─────────────────────────────────────────────────────────────
 let _counter = 0;
@@ -20,7 +27,7 @@ const DEFAULT_SETTINGS = {
 export const todayKey   = () => format(new Date(), 'yyyy-MM-dd');
 const emptyLog          = () => ({ completed: [], skipped: [], notes: {} });
 
-// ─── AsyncStorage ─────────────────────────────────────────────────────────────
+// ─── AsyncStorage (asosiy persistence) ───────────────────────────────────────
 const loadStorage = async () => {
   try { const r = await AsyncStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : null; }
   catch { return null; }
@@ -31,17 +38,26 @@ const saveStorage = async (data) => {
 };
 
 // ─── File backup ──────────────────────────────────────────────────────────────
+// writeAsStringAsync deprecated but 100% ishonchli — hech qachon URI xatosi bermaydi
 export const exportToFile = async (data) => {
   try {
-    const path = LegacyFS.cacheDirectory + 'intizom-backup.json';
-    await LegacyFS.writeAsStringAsync(path, JSON.stringify(data, null, 2));
+    const path = cacheDirectory + 'intizom-backup.json';
+    await writeAsStringAsync(path, JSON.stringify(data, null, 2));
     return path;
-  } catch (e) { console.warn('exportToFile:', e?.message); return null; }
+  } catch (e) {
+    console.warn('exportToFile:', e?.message);
+    return null;
+  }
 };
 
 export const importFromFile = async (uri) => {
-  try { const raw = await LegacyFS.readAsStringAsync(uri); return JSON.parse(raw); }
-  catch (e) { console.warn('importFromFile:', e?.message); return null; }
+  try {
+    const raw = await readAsStringAsync(uri);
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn('importFromFile:', e?.message);
+    return null;
+  }
 };
 
 // ─── Streak helpers ───────────────────────────────────────────────────────────
